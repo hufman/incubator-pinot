@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import junit.framework.Assert;
-import org.apache.commons.lang.math.IntRange;
 import org.apache.pinot.common.metadata.segment.ColumnPartitionMetadata;
 import org.apache.pinot.common.metadata.segment.OfflineSegmentZKMetadata;
 import org.apache.pinot.common.metadata.segment.SegmentPartitionMetadata;
@@ -49,7 +48,7 @@ public class SegmentZKMetadataPrunerTest {
 
     int expectedPartition = 3;
     columnPartitionMap.put(PARTITION_COLUMN, new ColumnPartitionMetadata(PARTITION_FUNCTION_NAME, NUM_PARTITION,
-        Collections.singletonList(new IntRange(expectedPartition))));
+        Collections.singletonList(expectedPartition)));
 
     SegmentZKMetadataPrunerService prunerService = new SegmentZKMetadataPrunerService(new String[]{PRUNER_NAME});
     SegmentPartitionMetadata segmentPartitionMetadata = new SegmentPartitionMetadata(columnPartitionMap);

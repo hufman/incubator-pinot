@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.broker.routing.builder;
 
+import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -179,7 +180,8 @@ public class PartitionAwareOfflineRoutingTableBuilder extends BasePartitionAware
   }
 
   /**
-   * Get partition id from segment Zk metadata. This helper function assumes there is only one column partition metadata.
+   * Get partition id from segment Zk metadata.
+   * TODO: This helper function assumes the segment is partitioned on at most one column, and contains only 1 partition.
    *
    * @param segmentZKMetadata segment zk metadata for a segment
    * @return partition id
@@ -193,16 +195,13 @@ public class PartitionAwareOfflineRoutingTableBuilder extends BasePartitionAware
         return NO_PARTITION_NUMBER;
       }
       Map<String, ColumnPartitionMetadata> columnPartitionMap = partitionMetadata.getColumnPartitionMap();
-      if (columnPartitionMap == null || columnPartitionMap.size() == 0) {
+      if (columnPartitionMap == null || columnPartitionMap.isEmpty()) {
         return NO_PARTITION_NUMBER;
       }
-      ColumnPartitionMetadata columnPartitionMetadata;
-      if (columnPartitionMap.size() == 1) {
-        columnPartitionMetadata = columnPartitionMap.values().iterator().next();
-        int partitionIdStart = columnPartitionMetadata.getPartitionRanges().get(0).getMaximumInteger();
-        // int partitionIdEnd = columnPartitionMetadata.getPartitionRanges().get(0).getMaximumInteger();
-        return partitionIdStart;
-      }
+      Preconditions.checkState(columnPartitionMap.size() == 1, "Segment is partitioned on more than one columns");
+      List<Integer> partitions = columnPartitionMap.values().iterator().next().getPartitions();
+      Preconditions.checkState(partitions.size() == 1, "Segment contains not exact one partition");
+      return partitions.get(0);
     }
     // If we use the table level replica group assignment, we can simply return the default partition number.
     return TABLE_LEVEL_PARTITION_NUMBER;

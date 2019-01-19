@@ -67,16 +67,12 @@ public class ReplicaGroupSegmentAssignmentStrategy implements SegmentAssignmentS
         tableConfig.getValidationConfig().getReplicaGroupStrategyConfig();
     boolean mirrorAssignmentAcrossReplicaGroups = replicaGroupStrategyConfig.getMirrorAssignmentAcrossReplicaGroups();
 
-    String partitionColumn = replicaGroupStrategyConfig.getPartitionColumn();
-
     int partitionNumber = 0;
+    String partitionColumn = replicaGroupStrategyConfig.getPartitionColumn();
     if (partitionColumn != null) {
       // TODO: Need to address when we have multiple partition numbers.
       partitionNumber =
-          ((SegmentMetadataImpl) segmentMetadata).getColumnMetadataFor(replicaGroupStrategyConfig.getPartitionColumn())
-              .getPartitionRanges()
-              .get(0)
-              .getMaximumInteger();
+          ((SegmentMetadataImpl) segmentMetadata).getColumnMetadataFor(partitionColumn).getPartitions().get(0);
     }
 
     // Perform the segment assignment.

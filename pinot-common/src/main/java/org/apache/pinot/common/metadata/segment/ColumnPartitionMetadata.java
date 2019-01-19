@@ -19,20 +19,15 @@
 package org.apache.pinot.common.metadata.segment;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import org.apache.commons.lang.math.IntRange;
-import org.apache.pinot.common.config.ColumnPartitionConfig;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pinot.common.utils.EqualityUtils;
 
 
@@ -41,77 +36,120 @@ import org.apache.pinot.common.utils.EqualityUtils;
  * <ul>
  *   <li> Partition function.</li>
  *   <li> Number of partitions. </li>
- *   <li> List of partition ranges. </li>
+ *   <li> List of partitions. </li>
  * </ul>
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ColumnPartitionMetadata extends ColumnPartitionConfig {
-
-  private final List<IntRange> _partitionRanges;
+@JsonDeserialize(using = ColumnPartitionMetadata.ColumnPartitionMetadataDeserializer.class)
+public class ColumnPartitionMetadata {
+  private final String _functionName;
+  private final int _numPartitions;
+  private final List<Integer> _partitions;
 
   /**
    * Constructor for the class.
    * @param functionName Name of the partition function.
    * @param numPartitions Number of partitions for this column.
-   * @param partitionRanges Partition ranges for the column.
+   * @param partitions Partitions for the column.
    */
-  public ColumnPartitionMetadata(@JsonProperty("functionName") String functionName,
-      @JsonProperty("numPartitions") int numPartitions,
-      @JsonProperty("partitionRanges") @JsonDeserialize(using = PartitionRangesDeserializer.class) List<IntRange> partitionRanges) {
-    super(functionName, numPartitions);
-    _partitionRanges = partitionRanges;
+  public ColumnPartitionMetadata(String functionName, int numPartitions, List<Integer> partitions) {
+    _functionName = functionName;
+    _numPartitions = numPartitions;
+    _partitions = partitions;
   }
 
-  /**
-   * Returns the list of partition ranges.
-   *
-   * @return List of partition ranges.
-   */
-  @JsonSerialize(using = PartitionRangesSerializer.class)
-  public List<IntRange> getPartitionRanges() {
-    return _partitionRanges;
+  public String getFunctionName() {
+    return _functionName;
+  }
+
+  public int getNumPartitions() {
+    return _numPartitions;
+  }
+
+  public List<Integer> getPartitions() {
+    return _partitions;
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
+  public boolean equals(Object obj) {
+    if (this == obj) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
+    if (obj instanceof ColumnPartitionMetadata) {
+      ColumnPartitionMetadata that = (ColumnPartitionMetadata) obj;
+      return _functionName.equals(that._functionName) && _numPartitions == that._numPartitions && _partitions
+          .equals(that._partitions);
     }
-
-    ColumnPartitionMetadata that = (ColumnPartitionMetadata) o;
-    return super.equals(that) && Objects.equals(_partitionRanges, that._partitionRanges);
+    return false;
   }
 
   @Override
   public int hashCode() {
-    int hashCode = _partitionRanges != null ? _partitionRanges.hashCode() : 0;
+    int hashCode = _partitions != null ? _partitions.hashCode() : 0;
     return EqualityUtils.hashCodeOf(super.hashCode(), hashCode);
   }
 
   /**
-   * Custom Json serializer for list of IntRange's.
+   * Helper method to extract partitions from configuration.
+   * <p>
+   * There are two format of partition strings:
+   * <ul>
+   *   <li>Integer format: e.g. {@code "0"}</li>
+   *   <li>Range format (legacy): e.g. {@code "[0 0]"}</li>
+   * </ul>
    */
-  public static class PartitionRangesSerializer extends JsonSerializer<List<IntRange>> {
-
-    @Override
-    public void serialize(List<IntRange> value, JsonGenerator jsonGenerator, SerializerProvider provider)
-        throws IOException {
-      jsonGenerator.writeString(ColumnPartitionConfig.rangesToString(value));
+  public static List<Integer> extractPartitions(List partitionList) {
+    int numPartitions = partitionList.size();
+    List<Integer> partitions = new ArrayList<>(numPartitions);
+    for (Object o : partitionList) {
+      String partitionString = o.toString();
+      if (partitionString.charAt(0) == '[') {
+        // Range format
+        partitions.add(Integer.parseInt(partitionString.substring(1, partitionString.indexOf(' '))));
+      } else {
+        partitions.add(Integer.parseInt(partitionString));
+      }
     }
+    return partitions;
   }
 
   /**
-   * Custom Json de-serializer for list of IntRange's.
+   * Custom deserializer for {@link ColumnPartitionMetadata}.
+   * <p>
+   * This deserializer understands the legacy range format: {@code "partitionRanges":"[0 0],[1 1]"}
    */
-  public static class PartitionRangesDeserializer extends JsonDeserializer<List<IntRange>> {
+  public static class ColumnPartitionMetadataDeserializer extends JsonDeserializer<ColumnPartitionMetadata> {
+    private static final String FUNCTION_NAME_KEY = "functionName";
+    private static final String NUM_PARTITIONS_KEY = "numPartitions";
+    private static final String PARTITIONS_KEY = "partitions";
+
+    // DO NOT CHANGE: for backward-compatibility
+    private static final String LEGACY_PARTITIONS_KEY = "partitionRanges";
+    private static final char LEGACY_PARTITION_DELIMITER = ',';
 
     @Override
-    public List<IntRange> deserialize(JsonParser jsonParser, DeserializationContext context)
+    public ColumnPartitionMetadata deserialize(JsonParser p, DeserializationContext ctxt)
         throws IOException {
-      return ColumnPartitionConfig.rangesFromString(jsonParser.getText());
+      JsonNode jsonMetadata = p.getCodec().readTree(p);
+      List<Integer> partitions;
+      JsonNode jsonPartitions = jsonMetadata.get(PARTITIONS_KEY);
+      if (jsonPartitions != null) {
+        int numPartitions = jsonPartitions.size();
+        partitions = new ArrayList<>(numPartitions);
+        for (int i = 0; i < numPartitions; i++) {
+          partitions.add(jsonPartitions.get(i).asInt());
+        }
+      } else {
+        // Legacy format: "partitionRanges":"[0 0],[1 1]"
+        String partitionRanges = jsonMetadata.get(LEGACY_PARTITIONS_KEY).asText();
+        String[] partitionStrings = StringUtils.split(partitionRanges, LEGACY_PARTITION_DELIMITER);
+        partitions = new ArrayList<>(partitionStrings.length);
+        for (String partitionString : partitionStrings) {
+          partitions.add(Integer.parseInt(partitionString.substring(1, partitionString.indexOf(' '))));
+        }
+      }
+      return new ColumnPartitionMetadata(jsonMetadata.get(FUNCTION_NAME_KEY).asText(),
+          jsonMetadata.get(NUM_PARTITIONS_KEY).asInt(), partitions);
     }
   }
 }

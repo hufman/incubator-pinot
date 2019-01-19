@@ -19,7 +19,6 @@
 package org.apache.pinot.core.realtime.converter.stats;
 
 import java.util.List;
-import org.apache.commons.lang.math.IntRange;
 import org.apache.pinot.core.common.Block;
 import org.apache.pinot.core.common.BlockValSet;
 import org.apache.pinot.core.data.partition.PartitionFunction;
@@ -102,13 +101,8 @@ public class RealtimeNoDictionaryColStatistics implements ColumnStatistics {
   }
 
   @Override
-  public List<IntRange> getPartitionRanges() {
+  public List<Integer> getPartitions() {
     return null;
-  }
-
-  @Override
-  public int getPartitionRangeWidth() {
-    return 0;
   }
 
   private int lengthOfDataType() {

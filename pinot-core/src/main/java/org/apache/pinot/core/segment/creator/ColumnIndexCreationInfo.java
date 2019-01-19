@@ -19,7 +19,6 @@
 package org.apache.pinot.core.segment.creator;
 
 import java.util.List;
-import org.apache.commons.lang.math.IntRange;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.pinot.core.common.Constants;
 import org.apache.pinot.core.data.partition.PartitionFunction;
@@ -103,8 +102,8 @@ public class ColumnIndexCreationInfo {
     return columnStatistics.getLengthOfLargestElement();
   }
 
-  public List<IntRange> getPartitionRanges() {
-    return columnStatistics.getPartitionRanges();
+  public List<Integer> getPartitions() {
+    return columnStatistics.getPartitions();
   }
 
   public PartitionFunction getPartitionFunction() {
