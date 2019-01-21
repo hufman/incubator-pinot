@@ -39,6 +39,7 @@ import org.apache.pinot.core.segment.index.readers.ImmutableDictionaryReader;
 import org.apache.pinot.core.segment.index.readers.IntDictionary;
 import org.apache.pinot.core.segment.index.readers.InvertedIndexReader;
 import org.apache.pinot.core.segment.index.readers.LongDictionary;
+import org.apache.pinot.core.segment.index.readers.LuceneInvertedIndexReader;
 import org.apache.pinot.core.segment.index.readers.OnHeapDoubleDictionary;
 import org.apache.pinot.core.segment.index.readers.OnHeapFloatDictionary;
 import org.apache.pinot.core.segment.index.readers.OnHeapIntDictionary;
@@ -104,9 +105,14 @@ public final class PhysicalColumnIndexContainer implements ColumnIndexContainer 
                 metadata.getBitsPerElement());
       }
       if (loadInvertedIndex) {
+        if(metadata.getObjectType() == null) {
         _invertedIndex =
             new BitmapInvertedIndexReader(segmentReader.getIndexFor(columnName, ColumnIndexType.INVERTED_INDEX),
                 metadata.getCardinality());
+        } else {
+          _invertedIndex =
+              new LuceneInvertedIndexReader(segmentReader.getIndexFor(columnName, ColumnIndexType.INVERTED_INDEX), metadata);
+        }
       } else {
         _invertedIndex = null;
       }
